@@ -25,14 +25,16 @@ class Context:
                        "password": password
                        }
             if user and password:
-                resp = requests.get(to_url + "/user/" + user)
+                session = requests.Session()
+                resp = session.get(to_url + "/user/" + user, timeout=5)
                 if resp.status_code != requests.codes.ok:
                     logger.debug("Trying to create user '%s'." % user)
                     # Try creating the user
-                    resp = requests.post(to_url + "/register", json=ustruct)
+                    resp = session.post(
+                        to_url + "/register", json=ustruct, timeout=5)
                     # If we don't have a user, this will fail.
                 logger.debug("Getting token for user '%s'" % user)
-                resp = requests.post(to_url + "/auth", json=ustruct)
+                resp = session.post(to_url + "/auth", json=ustruct, timeout=5)
                 try:
                     token = resp.json()['access_token']
                 except (KeyError, ValueError):
