@@ -1,17 +1,16 @@
 """Module to capture execution context for Squash ETL."""
 
 import logging
-import os
 import requests
 
 
 class Context:
 
     def __init__(self, user=None, password=None, token=None,
-                 logger=None, loglevel=None, directory=None, url=None):
-        if not url:
-            raise RuntimeError("Context requires URL")
-        self.url = url
+                 logger=None, loglevel=None, directory=None, from_url=None,
+                 to_url=None):
+        self.from_url = from_url
+        self.to_url = to_url
         if not logger:
             logger = logging.getLogger(__name__)
         self.logger = logger
@@ -19,20 +18,21 @@ class Context:
             loglevel = logging.INFO
         self.loglevel = loglevel
         logger.setLevel(loglevel)
-        if not token:
-            logging.debug("Trying to acquire token.")
+        self.directory = directory
+        if to_url and not token:
+            logger.debug("Trying to acquire token for '%s'." % to_url)
             ustruct = {"username": user,
                        "password": password
                        }
             if user and password:
-                resp = requests.get(url + "/user/ " + user)
+                resp = requests.get(to_url + "/user/ " + user)
                 if resp.status_code != requests.codes.ok:
-                    logging.debug("Trying to create user '%s'." % user)
+                    logger.debug("Trying to create user '%s'." % user)
                     # Try creating the user
-                    resp = requests.post(url + "/register", json=ustruct)
+                    resp = requests.post(to_url + "/register", json=ustruct)
                     # If we don't have a user, this will fail.
-                logging.debug("Getting token for user '%s'" % user)
-                resp = requests.post(url + "/auth", json=ustruct)
+                logger.debug("Getting token for user '%s'" % user)
+                resp = requests.post(to_url + "/auth", json=ustruct)
                 try:
                     token = resp.json()['access_token']
                 except (KeyError, ValueError):
@@ -45,5 +45,5 @@ class Context:
             }
         else:
             self.headers = {}
-            logging.warning("Could not get token for context; no write to %s" %
-                            url)
+            logger.warning("Could not get token for context; no write to %s" %
+                           to_url)

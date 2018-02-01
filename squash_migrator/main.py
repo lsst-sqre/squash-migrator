@@ -4,7 +4,8 @@ import logging
 import os
 from optparse import OptionParser
 from .context import Context
-from .defaults import SQUASH_MIGRATOR_NAMESPACE, SQUASH_API_URL
+from .defaults import SQUASH_MIGRATOR_NAMESPACE, SQUASH_API_URL,\
+    SQUASH_RESTFUL_API_URL
 from .extractor import Extractor
 from .transformer import Transformer
 from .loader import Loader
@@ -12,14 +13,19 @@ from .loader import Loader
 
 class Migrator:
 
-    def __init__(self, context, extractor, transformer, loader):
+    def __init__(self, context=None, extractor=None, transformer=None,
+                 loader=None):
         self.context = context
         self.extractor = extractor
         self.transformer = transformer
         self.loader = loader
+        self.logger = logging.getLogger(__name__)
+        self.loglevel = context.loglevel
+        self.logger.setLevel(self.loglevel)
 
-    def etl(self):
-        pass
+    def etl(self, jobs=None):
+        """Perform the extract/transform/load operation."""
+        self.extractor.extract(job_numbers=jobs)
 
 
 def _empty(obj, param):
@@ -35,19 +41,25 @@ def get_options():
                       default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
                                              "DIRECTORY") or
                       os.path.join(os.getcwd(), "squash_data"))
-    parser.add_option("-n", "--user", "--username",
+    parser.add_option("-u", "--user", "--username",
                       help="username for API communication")
     parser.add_option("-p", "--password", "--pass", "--pw",
                       help="username for API communication")
-    parser.add_option("-t", "--token",
+    parser.add_option("-k", "--token",
                       help="token for API communication")
     parser.add_option("-l", "--loglevel",
                       help="loglevel to use",
                       default="info")
-    parser.add_option("-u", "--url",
-                      help="URL for API communication",
+    parser.add_option("-f", "--from-url", "--from",
+                      help="URL of old service",
                       default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
                                              "API_URL") or SQUASH_API_URL)
+    parser.add_option("-t", "--to-url", "--to",
+                      help="URL of new service",
+                      default=(os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                              "RESTFUL_API_URL")
+                               or SQUASH_RESTFUL_API_URL))
+    parser.add_option("-j", "--jobs", help="Job numbers to fetch")
     (params, _) = parser.parse_args()
     loglevel = params.loglevel
     if not loglevel:
@@ -59,6 +71,20 @@ def get_options():
               'info': logging.INFO,
               'debug': logging.DEBUG}
     params.loglevel = logmap.get(loglevel)
+    logging.basicConfig(level=params.loglevel)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(params.loglevel)
+    logger.info("Creating migration object.")
+    if params.jobs:
+        jl = params.jobs.split(",")
+        jobset = set()
+        for j in jl:
+            if j.find("-") != -1:
+                fj, lj = j.split("-")
+                jobset.update(range(int(fj), int(lj) + 1))
+            else:
+                jobset.add(int(j))
+        params.jobs = jobset
     return params
 
 
@@ -70,9 +96,14 @@ def standalone():
                       logger=None,
                       loglevel=params.loglevel,
                       directory=params.directory,
-                      url=params.url)
+                      from_url=params.from_url,
+                      to_url=params.to_url)
     extractor = Extractor(context=context)
     transformer = Transformer(context=context)
     loader = Loader(context=context)
     migrator = Migrator(context, extractor, transformer, loader)
-    migrator.etl()
+    migrator.etl(jobs=params.jobs)
+
+
+if __name__ == "__main__":
+    standalone()
