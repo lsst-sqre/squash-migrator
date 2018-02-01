@@ -25,7 +25,7 @@ class Context:
                        "password": password
                        }
             if user and password:
-                resp = requests.get(to_url + "/user/ " + user)
+                resp = requests.get(to_url + "/user/" + user)
                 if resp.status_code != requests.codes.ok:
                     logger.debug("Trying to create user '%s'." % user)
                     # Try creating the user

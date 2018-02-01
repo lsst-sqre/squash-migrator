@@ -5,7 +5,7 @@ import os
 import codecs
 from setuptools import setup, find_packages
 
-PACKAGENAME = 'sqash-migrator'
+PACKAGENAME = 'squash-migrator'
 DESCRIPTION = 'Migrate Squash DB from old to new format'
 AUTHOR = 'Adam Thornton'
 AUTHOR_EMAIL = 'athornton@lsst.org'
