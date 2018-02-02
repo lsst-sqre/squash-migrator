@@ -23,12 +23,13 @@ class Extractor:
         self.logger = logger
         self.session = None
 
-    def extract(self, job_numbers=set()):
+    def extract(self):
         """Connect to the squash DB to copy from, and extract all the
         jobs.  Since jobs are immutable, if there is already a file
         representing the job, don't rewrite it.
         """
         jobdir = os.path.join(self.directory, "jobs")
+        job_numbers = self.context.job_numbers
         os.makedirs(jobdir, mode=0o755, exist_ok=True)
         if not self.session:
             self.session = requests.Session()
@@ -75,8 +76,7 @@ class Extractor:
     def _individual_extract(self, job_numbers):
         lenjob = len(job_numbers)
         so_far = 0
-        while job_numbers:
-            jobnum = job_numbers.pop()
+        for jobnum in job_numbers:
             fname = self._get_filename_for_jobnum(jobnum)
             if os.path.exists(fname):
                 self.logger.info(

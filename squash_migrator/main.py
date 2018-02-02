@@ -25,7 +25,9 @@ class Migrator:
 
     def etl(self, jobs=None):
         """Perform the extract/transform/load operation."""
-        self.extractor.extract(job_numbers=jobs)
+        self.extractor.extract()
+        self.transformer.transform()
+        self.loader.load()
 
 
 def _empty(obj, param):
@@ -97,13 +99,14 @@ def standalone():
                       loglevel=params.loglevel,
                       directory=params.directory,
                       from_url=params.from_url,
-                      to_url=params.to_url)
+                      to_url=params.to_url,
+                      job_numbers=params.jobs)
     extractor = Extractor(context=context)
     transformer = Transformer(context=context)
     loader = Loader(context=context)
     migrator = Migrator(context, extractor, transformer, loader)
-    migrator.etl(jobs=params.jobs)
-    transformer.transform(jobs=params.jobs)
+    migrator.etl()
+    transformer.transform()
 
 
 if __name__ == "__main__":

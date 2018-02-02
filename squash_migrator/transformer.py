@@ -15,20 +15,22 @@ class Transformer:
         self.directory = os.path.abspath(context.directory)
         self.input_dir = os.path.join(self.directory, "jobs")
         self.output_dir = os.path.join(self.directory, "transformed")
+        self.job_numbers = self.context.job_numbers
         logger = logging.getLogger(__name__)
         logger.setLevel(context.loglevel)
         self.logger = logger
         self.session = None
         self.metric_map = {}
 
-    def transform(self, jobs=set()):
+    def transform(self):
         """Transform old-style representations into new ones.
         """
         inputfiles = []
-        if not jobs:
+        job_numbers = self.job_numbers
+        if not job_numbers:
             inputfiles = self._scan_inputdir()
         else:
-            for jobnum in jobs:
+            for jobnum in job_numbers:
                 inputfiles.append(os.path.join(
                     self.input_dir, "job-%s.json" % jobnum))
         if not inputfiles:
@@ -91,9 +93,12 @@ class Transformer:
             nm["value"] = meas["value"]
             nm["metric"] = "validate_drp." + meas["metric"]
             nm["unit"] = self.metric_map.get(meas["metric"])
-            nm["blob_refs"] = self._get_blob_refs(job)
-            jm.append(nm)
-        tjob["blobs"] = job["blobs"]
+            nm["blob_refs"] = self._get_blob_refs(meas)
+            tm.append(nm)
+        blobs = job["blobs"]
+        if type(blobs) is str:
+            blobs = self._fix_input_string(blobs)
+        tjob["blobs"] = blobs
         # Inject blobs parameters here when Angelo figures it out.
         tjob["meta"]["env"] = {}
         te = tjob["meta"]["env"]
@@ -104,30 +109,49 @@ class Transformer:
         te["env_name"] = "jenkins"
         package_obj = self._transform_packages(job)
         tjob["meta"]["packages"] = package_obj
+        # Just used to correlate input with output.
+        tjob["_job_number"] = job["links"]["self"].split("/")[-2]
         return tjob
 
     def _transform_packages(self, job):
         retval = {}
         for pck in job["packages"]:
             nnm = pck["name"]
-            self.logger.debug("Adding package '%s'" % nnm)
             retval[nnm] = pck
         return retval
 
-    def _get_blob_refs(self, job):
-        blobs = None
-        try:
-            blobs = job["measurements"]["metadata"]["blobs"]
-        except (KeyError, TypeError):
+    def _get_blob_refs(self, meas):
+        metadata = meas.get("metadata")
+        if not metadata:
             return None
-        bref = []
-        for k, v in blobs:
-            self.logger.debug("Adding values for blob '%s'" % k)
-            bref.append(v)
-        return bref
+        if type(metadata) is str:
+            metadata = self._fix_input_string(metadata)
+        try:
+            blobs = metadata["blobs"]
+        except (KeyError, TypeError) as exc:
+            self.logger.debug("Could not extract metadata blobs: %s" %
+                              str(exc))
+            return None
+        return list(blobs.values())
+
+    def _fix_input_string(self, input):
+        obj = None
+        try:
+            obj = json.loads(input)
+        except json.decoder.JSONDecodeError as exc:
+            sexc = str(exc)
+            if sexc.find("property name enclosed in double quotes") != -1:
+                self.logger.debug("Attempting string fixup.")
+                # This seems like a terrible idea.
+                obj = eval(input)
+            else:
+                self.logger.warning("%s (metadata = '%s')" %
+                                    (sexc, metadata))
+        return obj
 
     def write_transformed_job(self, job):
-        fname = self._get_filename_for_job(job)
+        fname = self._get_filename_for_jobnum(job["_job_number"])
+        del job["_job_number"]
         if os.path.exists(fname):
             self.logger.info(
                 "File '%s' exists; remove to re-transform." % fname)
@@ -135,11 +159,6 @@ class Transformer:
         with open(fname, "w") as f:
             self.logger.debug("Writing job to file '%s'." % fname)
             json.dump(job, f, sort_keys=True, indent=4)
-
-    def _get_filename_for_job(self, job):
-        # I feel like "ID" should be a field, but....
-        jobnum = job["links"]["self"].split("/")[-2]
-        return self._get_filename_for_jobnum(jobnum)
 
     def _get_filename_for_jobnum(self, jobnum):
         fname = os.path.join(self.output_dir, "job-%s.json" % jobnum)

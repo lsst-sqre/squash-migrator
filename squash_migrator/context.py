@@ -8,7 +8,7 @@ class Context:
 
     def __init__(self, user=None, password=None, token=None,
                  logger=None, loglevel=None, directory=None, from_url=None,
-                 to_url=None):
+                 to_url=None, job_numbers=None):
         self.from_url = from_url
         self.to_url = to_url
         if not logger:
@@ -19,6 +19,9 @@ class Context:
         self.loglevel = loglevel
         logger.setLevel(loglevel)
         self.directory = directory
+        if job_numbers is None:
+            job_numbers = set()
+        self.job_numbers = job_numbers
         if to_url and not token:
             logger.debug("Trying to acquire token for '%s'." % to_url)
             ustruct = {"username": user,
