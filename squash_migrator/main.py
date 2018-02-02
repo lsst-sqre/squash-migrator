@@ -103,6 +103,7 @@ def standalone():
     loader = Loader(context=context)
     migrator = Migrator(context, extractor, transformer, loader)
     migrator.etl(jobs=params.jobs)
+    transformer.transform(jobs=params.jobs)
 
 
 if __name__ == "__main__":

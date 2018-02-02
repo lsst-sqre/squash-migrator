@@ -6,6 +6,9 @@ import logging
 import os
 import requests
 
+MAX_TIMEOUT = 10 * 60
+BASE_TIMEOUT = 15
+
 
 class Extractor:
 
@@ -34,12 +37,27 @@ class Extractor:
         else:
             self._individual_extract(job_numbers)
 
+    def _get_job(self, url):
+        timeout = BASE_TIMEOUT
+        saved_exception = None
+        while timeout <= MAX_TIMEOUT:
+            try:
+                resp = self.session.get(url, timeout=timeout)
+                return resp
+            except requests.exceptions.ConnectionError as exc:
+                self.logger.warning(
+                    "Connection error: %s / timeout %d s" % (str(exc), timeout)
+                )
+                saved_exception = exc
+            timeout = timeout * 2
+        raise saved_exception
+
     def _bulk_extract(self):
         nexturl = self.url + "/jobs"
         so_far = 0
         while nexturl:
             url = nexturl
-            resp = self.session.get(url, timeout=30)
+            resp = self._get_job(url)
             nexturl = None
             try:
                 j_resp = resp.json()
@@ -63,16 +81,24 @@ class Extractor:
             if os.path.exists(fname):
                 self.logger.info(
                     "File '%s' exists; remove to re-fetch." % fname)
+                so_far = so_far + 1
                 continue
             url = self.url + "/jobs/" + str(jobnum) + "/"
-            resp = self.session.get(url, timeout=30)
+            try:
+                resp = self._get_job(url)
+            except requests.exceptions.ConnectionError as exc:
+                self.logger.error("Did not fetch '%s': %s" % (url, str(exc)))
+                continue
             try:
                 j_resp = resp.json()
             except json.decoder.JSONDecodeError as exc:
                 self._showerror(resp, exc)
                 continue
-            self.write_job(j_resp)
-            so_far = so_far + 1
+            try:
+                self.write_job(j_resp)
+                so_far = so_far + 1
+            except KeyError:
+                self.logger.error("Job %d malformed: cannot write." % jobnum)
             self.logger.info("%s: %d/%d", url, so_far, lenjob)
 
     def write_job(self, job):
