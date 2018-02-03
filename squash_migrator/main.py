@@ -66,12 +66,12 @@ def get_options():
     loglevel = params.loglevel
     if not loglevel:
         loglevel = 'info'
-    loglevel = loglevel.lower()
-    logmap = {'critical': logging.CRITICAL,
-              'error': logging.ERROR,
-              'warning': logging.WARNING,
-              'info': logging.INFO,
-              'debug': logging.DEBUG}
+    loglevel = loglevel.lower()[0]
+    logmap = {'c': logging.CRITICAL,
+              'e': logging.ERROR,
+              'w': logging.WARNING,
+              'i': logging.INFO,
+              'd': logging.DEBUG}
     params.loglevel = logmap.get(loglevel)
     logging.basicConfig(level=params.loglevel)
     logger = logging.getLogger(__name__)
