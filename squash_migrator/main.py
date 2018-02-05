@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+"""Standalone executable and main class for SQuaSH migration tool.
+"""
 
+import argparse
 import logging
 import os
-from optparse import OptionParser
 from .context import Context
 from .defaults import SQUASH_MIGRATOR_NAMESPACE, SQUASH_API_URL,\
     SQUASH_RESTFUL_API_URL
@@ -12,6 +14,8 @@ from .loader import Loader
 
 
 class Migrator:
+    """Class to perform entire ETL process, looping over SQuaSH database jobs.
+    """
 
     def __init__(self, context=None, extractor=None, transformer=None,
                  loader=None):
@@ -24,7 +28,9 @@ class Migrator:
         self.logger.setLevel(self.loglevel)
 
     def etl(self, jobs=None):
-        """Perform the extract/transform/load operation."""
+        """Perform the extract/transform/load operation by delegating to
+        actuators.
+        """
         self.extractor.extract()
         self.transformer.transform()
         self.loader.load()
@@ -38,31 +44,53 @@ def _empty(obj, param):
 
 def get_options():
     params = {}
-    parser = OptionParser()
-    parser.add_option("-d", "--directory", help="directory for squash data",
-                      default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
-                                             "DIRECTORY") or
-                      os.path.join(os.getcwd(), "squash_data"))
-    parser.add_option("-u", "--user", "--username",
-                      help="username for API communication")
-    parser.add_option("-p", "--password", "--pass", "--pw",
-                      help="username for API communication")
-    parser.add_option("-k", "--token",
-                      help="token for API communication")
-    parser.add_option("-l", "--loglevel",
-                      help="loglevel to use",
-                      default="info")
-    parser.add_option("-f", "--from-url", "--from",
-                      help="URL of old service",
-                      default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
-                                             "API_URL") or SQUASH_API_URL)
-    parser.add_option("-t", "--to-url", "--to",
-                      help="URL of new service",
-                      default=(os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
-                                              "RESTFUL_API_URL")
-                               or SQUASH_RESTFUL_API_URL))
-    parser.add_option("-j", "--jobs", help="Job numbers to fetch")
-    (params, _) = parser.parse_args()
+    descstr = ("Command-line tool for SQuaSH ETL from old to new format. " +
+               "Any option may also be specified in the environment as " +
+               SQUASH_MIGRATOR_NAMESPACE + " prepended to the parameter " +
+               "name (e.g. " + SQUASH_MIGRATOR_NAMESPACE + "USER). " +
+               "The directory is used as a persistent cache, which must " +
+               "be cleared if re-extraction/re-transformation is desired.")
+    parser = argparse.ArgumentParser(description=descstr)
+    parser.add_argument("-u", "--user", "--username",
+                        help="username for (write) SQuaSH API communication",
+                        default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                               "USER"))
+    parser.add_argument("-p", "--password", "--pass", "--pw",
+                        help="password for (write) SQuaSH API communication",
+                        default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                               "PASSWORD"))
+    parser.add_argument("-k", "--token",
+                        help=("token for (write) SQuaSH API communication" +
+                              " (overrides user/password if present)"),
+                        default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                               "TOKEN"))
+    parser.add_argument("-d", "--directory",
+                        help=("directory for SQuaSH data [default: " +
+                              "./squash_data]"),
+                        default=(os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                                "DIRECTORY") or
+                                 os.path.join(os.getcwd(), "squash_data")))
+    parser.add_argument("-l", "--loglevel",
+                        help="loglevel to use [default: info]",
+                        default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                               "TOKEN") or "info")
+    parser.add_argument("-f", "--from-url", "--from",
+                        help=("URL of old SQuaSH service [default: %s]" %
+                              SQUASH_API_URL),
+                        default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                               "FROM_URL") or SQUASH_API_URL)
+    parser.add_argument("-t", "--to-url", "--to",
+                        help=("URL of new SQUaSH service [default: %s]" %
+                              SQUASH_RESTFUL_API_URL),
+                        default=(os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                                "TO_URL")
+                                 or SQUASH_RESTFUL_API_URL))
+    parser.add_argument("-j", "--jobs",
+                        help="Job numbers to fetch [default: all]",
+                        default=os.environ.get(SQUASH_MIGRATOR_NAMESPACE +
+                                               "JOBS"))
+
+    params = parser.parse_args()
     loglevel = params.loglevel
     if not loglevel:
         loglevel = 'info'
@@ -106,7 +134,6 @@ def standalone():
     loader = Loader(context=context)
     migrator = Migrator(context, extractor, transformer, loader)
     migrator.etl()
-    transformer.transform()
 
 
 if __name__ == "__main__":

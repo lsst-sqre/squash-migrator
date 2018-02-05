@@ -8,6 +8,8 @@ import requests
 
 
 class Actuator(object):
+    """Base class for SQuaSH migration components.
+    """
 
     def __init__(self, context=None):
         if not context:
@@ -44,16 +46,26 @@ class Actuator(object):
         """Show an HTTP response error, eliding text if necessary.
         """
         rtext = resp.text
-        ltext = len(rtext) - 2000
         # There seems to be a break between 22601 bytes and much bigger.
-        if len(rtext) > 30000:
-            rtext = (rtext[:1000] +
-                     ("[ ...%d characters elided... ]" % ltext) +
-                     rtext[-1000:])
+        etext = self.maybe_elide_long_string(rtext)
         errstr = (("Response from '%s': exception '%s', " +
                    "HTTP status code %r, text '%s'") %
-                  (resp.url, str(exc), resp.status_code, rtext))
+                  (resp.url, str(exc), resp.status_code, etext))
         self.logger.error(errstr)
+
+    def maybe_elide_long_string(self, input):
+        """Show just beginning and end of string larger than 30000
+        characters.
+        """
+        ll = len(input) - 2000
+        instr = input
+        # There seems to be a break between 22601 bytes and much bigger in
+        #  job sizes
+        if ll > 30000:
+            instr = (input[:1000] +
+                     "...[ %d characters elided ]..." % ll +
+                     input[-1000:])
+        return instr
 
     def write_job(self, job, directory):
         """Write JSON for job to file in specified directory.

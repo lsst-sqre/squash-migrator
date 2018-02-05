@@ -1,4 +1,3 @@
-"""Class to load new representation into database."""
 import json
 import logging
 import os
@@ -6,8 +5,7 @@ from .actuator import Actuator
 
 
 class Loader(Actuator):
-    """Push transformed jobs into the new database.
-    """
+    """Class to load new SQuaSH representation into database."""
 
     def __init__(self, context=None):
         super().__init__(context=context)
@@ -32,7 +30,7 @@ class Loader(Actuator):
                 inputfiles.append(self.get_filename_for_jobnum(
                     self.input_dir, jobnum))
         if not inputfiles:
-            self.logger.error("No input files found in %s to transform" %
+            self.logger.error("No input files found in %s to load" %
                               self.input_dir)
             return
         session = self.session
@@ -42,6 +40,7 @@ class Loader(Actuator):
         jobmap = {}
         for fname in inputfiles:
             with open(fname, "r") as f:
+                self.logger.debug("Loading '%s' for transmission" % fname)
                 job = json.load(f)
                 # _job_number is used in new jobs for correlation but should
                 #   not be sent

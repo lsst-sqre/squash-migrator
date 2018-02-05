@@ -1,4 +1,4 @@
-"""Default values for Squash migrator."""
+"""Default values for SQuaSH migrator."""
 
 __version__ = "0.0.1"
 SQUASH_MIGRATOR_NAMESPACE = "SQUASH_MIGRATOR_"
