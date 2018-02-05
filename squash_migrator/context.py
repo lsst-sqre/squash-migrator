@@ -1,10 +1,10 @@
-"""Module to capture execution context for Squash ETL."""
-
 import logging
 import requests
 
 
 class Context:
+    """Class to capture execution context for SQuaSH ETL process.
+    """
 
     def __init__(self, user=None, password=None, token=None,
                  logger=None, loglevel=None, directory=None, from_url=None,

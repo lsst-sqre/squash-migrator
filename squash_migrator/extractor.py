@@ -1,6 +1,3 @@
-"""Module to extract squash jobs from the old database and write them to
-a local directory.
-"""
 import json
 import logging
 import os
@@ -12,6 +9,9 @@ BASE_TIMEOUT = 15
 
 
 class Extractor(Actuator):
+    """Class to extract SQuaSH jobs from the old database and write them to
+    a local directory.
+    """
 
     def __init__(self, context=None):
         super().__init__(context=context)
@@ -22,7 +22,7 @@ class Extractor(Actuator):
         self.logger = logger
 
     def extract(self):
-        """Connect to the squash DB to copy from, and extract some or all
+        """Connect to the SQuaSH DB to copy from, and extract some or all
         jobs.  Since jobs are immutable, if there is already a file
         representing the job, don't rewrite it.
         """
