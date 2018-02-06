@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 from .actuator import Actuator
 
 
@@ -60,11 +61,19 @@ class Loader(Actuator):
                 resp = session.post(url, json=job)
                 if (resp.status_code < 200 or
                         resp.status_code > 299):
+                    # Should always be 202 if it worked.
                     self.logger.error("Error posting '%s': HTTP %d / '%s'" %
                                       (fname, resp.status_code, resp.text))
                     continue
-                r_json = resp.json()
-                message = r_json["message"]
+                try:
+                    r_json = resp.json()
+                    message = r_json["message"]
+                    statuslink = r_json["status"]
+                except (json.decoder.JSONDecodeError, KeyError) as exc:
+                    self.logger.error("Malformed response from " +
+                                      "%s (%s): %s" % (url, str(exc),
+                                                       resp.text))
+                    continue
                 # This is cheesy, but we rely on the filename format
                 #  and the message format to just extract the old and new
                 #  job IDs
@@ -77,9 +86,40 @@ class Loader(Actuator):
                 except ValueError:
                     errstr = "Could not determine job numbers for '%s' % fname"
                     self.logger.error(errstr)
+                try:
+                    self._check_status(statuslink)
+                except (RuntimeError, KeyError,
+                        json.decoder.JSONDecodeError) as exc:
+                    self.logger.error("Data load failed: %s" % str(exc))
+                    continue
                 so_far = so_far + 1
                 self.logger.info("%s: %d/%d" % (fname, so_far, numfiles))
         if jobmap:
             with open(os.path.join(self.directory, "jobmap.json"), "w") as f:
                 json.dump(jobmap, f)  # This makes the object key a string
                 # because JSON
+
+    def _check_status(self, statuslink):
+        self.logger.info("Checking S3 upload status.")
+        maxtries = 60
+        delay = 5
+        attempt = 0
+        while attempt < maxtries:
+            attempt = attempt + 1
+            resp = self.session.get(statuslink)
+            r_json = resp.json()
+            status = r_json["status"]
+            if status == "SUCCESS":
+                return
+            elif status == "FAILURE":
+                break
+            elif status == "PENDING" or status == "STARTED":
+                self.logger.debug("Upload %s [%d/%d]; waiting %ds" % (status,
+                                                                      attempt,
+                                                                      maxtries,
+                                                                      delay))
+            else:
+                self.logger.error("Unknown status %s" % status)
+                break
+            time.sleep(delay)
+        raise RuntimeError("Upload to s3 failed")
