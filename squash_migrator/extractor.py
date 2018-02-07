@@ -58,7 +58,7 @@ class Extractor(Actuator):
             try:
                 j_resp = resp.json()
             except json.decoder.JSONDecodeError as exc:
-                self._showerror(resp, exc)
+                self.show_response_error(resp, exc)
                 break
             if "next" in j_resp:
                 nexturl = j_resp["next"]
