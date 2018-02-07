@@ -71,14 +71,12 @@ class Actuator(object):
         """Write JSON for job to file in specified directory.
         """
         jobnum = self.get_jobnum_for_job(job)
+        job["_job_number"] = jobnum
         fname = self.get_filename_for_jobnum(directory, jobnum)
         if os.path.exists(fname):
             self.logger.info(
                 "File '%s' exists; remove to allow it rewriting." % fname)
             return
-        save_num = None
         with open(fname, "w") as fp:
             self.logger.debug("Writing job to file '%s'." % fname)
             json.dump(job, fp, indent=4, sort_keys=True)
-        if save_num is not None:
-            job["_job_number"] = save_num
